@@ -1,0 +1,94 @@
+# Practical Machine Learning Course Project
+
+The objective of this project is to devise a machine learning algorithm to determine the way dumbbell lifts are being performed by participants. There are five possible specifications of dumbbell lifts (some incorrect), and data comes from accelerometers on the belt, forearm, arm and dumbbell of 6 participants. 
+
+Analysis starts from having the training and testing datasets in my folder. As the dataset is large (N = 19622), and the testing dataset is separately provided, I should divide the training data into 75% training and 25% validation (rule of thumb: 60% training, 20% testing, 20% cross validation). 
+
+```{r setoptions, echo=FALSE}
+opts_chunk$set(cache=TRUE)
+```
+
+## Preliminaries
+
+Load all the packages and read the data:
+
+```{r, warning=FALSE}
+df <- read.csv("pml-training.csv", na.strings=c("NA", "", "#DIV/0!")) # Read training data into R
+library(AppliedPredictiveModeling)
+library(caret)
+library(randomForest)
+library(rattle)
+library(rpart)
+library(gbm)
+set.seed(123) # for reproducibility
+```
+
+Scanning the data suggests many potential predictors with many missing values. I want omit these to avoid problems associated with the treatment of observations with missing values by R.
+
+
+```{r, warning=FALSE}
+inTrain <- createDataPartition(df[,"classe"], p = .75)[[1]] # assign 75 pct of obs to training dataset
+training <- df[inTrain,]
+training <- training[,complete.cases(t(training))] # 60 var left
+training <- training[,-1] # 59
+nzv <- nearZeroVar(training, saveMetrics=TRUE) # new_window also has nzv
+training <- training[,-5] # remove new_window
+crossval <- df[-inTrain,]
+crossval <- crossval[,complete.cases(t(crossval))] 
+crossval <- crossval[,-1] 
+crossval <- crossval[,-5]
+```
+
+## Prediction Model
+
+I fit a generalised boosted regression model in an attempt to obtain stronger predictors for better accuracy. Using boosting was also motivated by other methods being very very slow. 
+
+```{r, warning=FALSE}
+modFit <- train(classe ~ ., data=training, method="gbm", distribution="multinomial", verbose=FALSE)
+print(modFit)
+```
+
+## Check for model's accuracy on training set
+
+```{r, warning=FALSE}
+predicttrain <- predict(modFit,training)
+confusionMatrix(training$classe, predicttrain)
+```
+
+Prediction appears to be very accurate. 99.9% of observations were correctly classified, suggesting a very low in sample error rate of about 0.1%.
+
+## Estimate model's out of sample error rate on cross validation set
+
+Now on the cross-validation set.
+
+```{r}
+predictcv <- predict(modFit, crossval)
+confusionMatrix(crossval$classe, predictcv)
+```
+
+Again, prediction appears to be accurate; 99.9% of observations were correctly classified. Based on the cross-validation sample, I expect the out of sample error rate to be 0.1%.
+
+## Submit test set
+
+```{r}
+test <- read.csv("pml-testing.csv", na.strings=c("NA", "", "#DIV/0!"))
+test <- test[,complete.cases(t(test))] 
+test <- test[,-1]
+test <- test[,-5]
+predicttest <- predict(modFit, test)
+predicttest <- as.character(predicttest)
+answers <- predicttest
+print(answers)
+#pml_write_files = function(x){
+#  n = length(x)
+#  for(i in 1:n){
+#    filename = paste0("problem_id_",i,".txt")
+#    write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+#  }
+#}
+#pml_write_files(answers)
+```
+
+
+
+
