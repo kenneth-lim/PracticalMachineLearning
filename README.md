@@ -1,4 +1,3 @@
 # PracticalMachineLearning
-Coursera, JHU
 
-The Proj.md file is the one to view.
+You may open the Proj.md file to view the file within github instead of downloading the repo. 
